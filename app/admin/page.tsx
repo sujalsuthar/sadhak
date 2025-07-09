@@ -8,7 +8,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import Navbar from "../components/Navbar";
 
 interface Mantra {
   title: string;
@@ -37,7 +36,7 @@ export default function AdminPage() {
     { id: 1, username: "admin", role: "Super Admin" },
     { id: 2, username: "editor", role: "Editor" },
   ]);
-  const [newUser, setNewUser] = useState({ username: "", role: "Editor" });
+  const [newUser, setNewUser] = useState({ username: "", role: "Editor", password: "" });
   const [siteSettings, setSiteSettings] = useState({
     title: "Sadhak",
     description: "Discover the timeless wisdom of Sanatana Dharma through spiritual teachings and practices",
@@ -236,10 +235,10 @@ export default function AdminPage() {
 
   // User management handlers
   const handleAddUser = () => {
-    if (!newUser.username) return;
+    if (!newUser.username || !newUser.password) return;
     setUsers([...users, { id: Date.now(), ...newUser }]);
     setLogs([{ id: Date.now(), action: `Added user ${newUser.username}`, user: "admin", time: new Date().toLocaleString() }, ...logs]);
-    setNewUser({ username: "", role: "Editor" });
+    setNewUser({ username: "", role: "Editor", password: "" });
   };
   const handleRemoveUser = (id: number) => {
     const user = users.find(u => u.id === id);
@@ -250,10 +249,25 @@ export default function AdminPage() {
     setUsers(users.map(u => u.id === id ? { ...u, role: newRole } : u));
     setLogs([{ id: Date.now(), action: `Changed role for user ${users.find(u => u.id === id)?.username} to ${newRole}`, user: "admin", time: new Date().toLocaleString() }, ...logs]);
   };
+  // Password reset modal state
+  const [resetUserId, setResetUserId] = useState<number | null>(null);
+  const [resetPassword, setResetPassword] = useState("");
   const handleResetPassword = (id: number) => {
-    const user = users.find(u => u.id === id);
-    setLogs([{ id: Date.now(), action: `Reset password for user ${user?.username}`, user: "admin", time: new Date().toLocaleString() }, ...logs]);
-    toast({ title: "Password Reset", description: `Password reset link sent to ${user?.username} (mocked)`, variant: "default" });
+    setResetUserId(id);
+    setResetPassword("");
+  };
+  const handleConfirmResetPassword = () => {
+    if (resetUserId === null || !resetPassword) return;
+    setUsers(users.map(u => u.id === resetUserId ? { ...u, password: resetPassword } : u));
+    const user = users.find(u => u.id === resetUserId);
+    setLogs([{ id: Date.now(), action: `Password reset for user ${user?.username}`, user: "admin", time: new Date().toLocaleString() }, ...logs]);
+    toast({ title: "Password Reset", description: `Password updated for ${user?.username}`, variant: "success" });
+    setResetUserId(null);
+    setResetPassword("");
+  };
+  const handleCancelResetPassword = () => {
+    setResetUserId(null);
+    setResetPassword("");
   };
   const handleSiteSettingsChange = (field: string, value: string) => {
     setSiteSettings({ ...siteSettings, [field]: value });
@@ -313,7 +327,6 @@ export default function AdminPage() {
   if (!isLoggedIn) {
     return (
       <>
-        <Navbar />
         <div className="min-h-screen bg-cream flex items-center justify-center p-4">
           <Card className="w-full max-w-sm p-6 shadow-lg">
             <CardHeader className="text-center">
@@ -357,9 +370,8 @@ export default function AdminPage() {
 
   return (
     <>
-      <Navbar />
-      <div className="min-h-screen bg-cream p-8">
-        <div className="max-w-4xl mx-auto bg-white p-6 rounded-lg shadow-lg relative">
+      <div className="min-h-screen bg-cream p-8 flex flex-col min-h-screen">
+        <div className="flex-1 max-w-4xl mx-auto bg-white p-6 rounded-lg shadow-lg relative">
           <h1 className="text-3xl font-bold text-deep-maroon mb-8 text-center">Admin Panel</h1>
           <Button onClick={handleLogout} className="absolute top-4 right-4 bg-red-500 hover:bg-red-600 text-white">
             Logout
@@ -550,6 +562,13 @@ export default function AdminPage() {
                     onChange={e => setNewUser({ ...newUser, username: e.target.value })}
                     className="border rounded px-2 py-1"
                   />
+                  <input
+                    type="password"
+                    placeholder="Password"
+                    value={newUser.password}
+                    onChange={e => setNewUser({ ...newUser, password: e.target.value })}
+                    className="border rounded px-2 py-1"
+                  />
                   <select
                     value={newUser.role}
                     onChange={e => setNewUser({ ...newUser, role: e.target.value })}
@@ -586,6 +605,26 @@ export default function AdminPage() {
                           <Button onClick={() => handleResetPassword(user.id)} className="bg-blue-500 hover:bg-blue-700 text-white px-3 py-1 rounded text-xs">Reset Password</Button>
                           <Button onClick={() => handleRemoveUser(user.id)} className="bg-red-500 hover:bg-red-700 text-white px-3 py-1 rounded text-xs">Remove</Button>
                         </td>
+      {/* Password Reset Modal */}
+      {resetUserId !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-lg shadow-lg p-8 w-full max-w-xs flex flex-col gap-4">
+            <h2 className="text-lg font-bold text-deep-maroon mb-2">Reset Password</h2>
+            <input
+              type="password"
+              placeholder="Enter new password"
+              value={resetPassword}
+              onChange={e => setResetPassword(e.target.value)}
+              className="border rounded px-2 py-1"
+              autoFocus
+            />
+            <div className="flex gap-2 mt-2">
+              <Button onClick={handleConfirmResetPassword} className="bg-saffron text-white px-4 py-2 rounded">Confirm</Button>
+              <Button onClick={handleCancelResetPassword} className="bg-gray-300 text-charcoal px-4 py-2 rounded">Cancel</Button>
+            </div>
+          </div>
+        </div>
+      )}
                       </tr>
                     ))}
                   </tbody>
@@ -641,6 +680,7 @@ export default function AdminPage() {
             </TabsContent>
           </Tabs>
         </div>
+        {/* Footer is now rendered globally via layout.tsx */}
       </div>
     </>
   );
